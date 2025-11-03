@@ -1,12 +1,13 @@
 import sys
 import copy
 from random import randint
+import time
 
 # This library contains prototype clases and methods to evaluate
 # Contact Graph Routing (CGR) routines as follows.
 # - contact plans (cp): load plans from file or generate randomly
 # - contact graph routing (cgr): compute routes using cgr techniques
-# - forward (fwd): process resulting routes for a specific bundle
+# - forward (fwd): process resulting routes for a specific ipv6_packet
 # - plot (plt): plot graph in gdf format for gephi visualization
 
 
@@ -15,8 +16,8 @@ class Contact:
         # fixed parameters
         self.frm = frm
         self.to = to
-        self.start = start
-        self.end = end
+        self.start = start + int(time.time())
+        self.end = end + int(time.time())
         self.rate = rate
         self.owlt = owlt
         self.volume = rate * (end - start)
@@ -134,8 +135,8 @@ class Route:
                 contact.first_byte_tx_time = contact.start
             else:
                 contact.first_byte_tx_time = max(contact.start, prev_last_byte_arr_time)
-            bundle_tx_time = 0  # immediate transmission
-            contact.last_byte_tx_time = contact.first_byte_tx_time + bundle_tx_time
+            ipv6_packet_tx_time = 0  # immediate transmission
+            contact.last_byte_tx_time = contact.first_byte_tx_time + ipv6_packet_tx_time
             contact.last_byte_arr_time = contact.last_byte_tx_time + contact.owlt
             prev_last_byte_arr_time = contact.last_byte_arr_time
 
@@ -200,21 +201,21 @@ class Route:
         return Route(contact, self)
 
 
-class Bundle:
-    def __init__(self, src, dst, size, deadline, priority, critical=False, sender=0, custody=False, fragment=True):
-        # bundle primary block parameters
+class ipv6_packet:
+    def __init__(self, src, dst, size, deadline, priority, fragment=True):
+        # ipv6_packet primary block parameters
         self.src = src
         self.dst = dst
         self.size = size
-        self.priority = priority
-        self.critical = critical
-        self.custody = custody
+        if priority == 8: self.priority = 0
+        if priority == 0: self.priority = 1
+        if priority == 46: self.priority = 2
         self.fragment = fragment
-        self.deadline = deadline
+        self.deadline = deadline + int(time.time()) #hop_limit is used as deadlilne 
 
         # computed parameters
-        self.evc = max(size*1.03, 100)        
-        self.sender = sender
+        #self.sender = sender
+        #self.evc = max(size*1.03, 100)
 
 
 # load contact plan file with the format:
@@ -242,23 +243,6 @@ def cp_load(file_name, max_contacts=None):
     print('Load contact plan: %s contacts were read.' % len(__contact_plan))
     # print(__contact_plan)
     return __contact_plan
-
-
-# construct a random contact plan
-def cp_random(max_contacts, max_nodes):
-    __contact_plan = []
-    for _ in range(max_contacts):
-        start = randint(0, 999)
-        end = start + randint(1, 100)
-        frm = randint(1, max_nodes)
-        to = randint(1, max_nodes)
-        while to == frm:
-            to = randint(1, max_nodes)
-        rate = 1
-        owlt = 1
-        __contact_plan.append(Contact(start=start, end=end, frm=frm, to=to, rate=rate, owlt=owlt))
-    return __contact_plan
-
 
 # compute the best route with dijkstra # (root_contact.arrival_time sets the current_time)
 def cgr_dijkstra(root_contact, destination, contact_plan):
@@ -777,26 +761,20 @@ def plot_contact_graph(name, contact_plan, source=None, destination=None):
                                                        1.1 - storage_time / max_storage_time))
 
 
-# compute candidate routes for a bundle
-def fwd_candidate(curr_time, curr_node, contact_plan, bundle, routes, excluded_nodes):
+# compute candidate routes for a ipv6_packet
+def fwd_candidate(curr_time, curr_node, contact_plan, ipv6_packet, routes, excluded_nodes):
 
     debug = False
 
-    return_to_sender = False
     candidate_routes = []
 
     for route in routes:
 
         # 3.2.5.2 a) preparation: backward propagation
-        if not return_to_sender:
-            if route.next_node is bundle.sender:
-                excluded_nodes.append(route.next_node)
-                if debug:
-                    print("preparation: next node is sender", route.next_node)
-                continue
+        # not implemented
 
         # 3.2.6.9 a)
-        if route.best_delivery_time > bundle.deadline:
+        if route.best_delivery_time > ipv6_packet.deadline:
             print("not candidate: best delivery time (bdt) is later than deadline")
             continue
 
@@ -838,23 +816,23 @@ def fwd_candidate(curr_time, curr_node, contact_plan, bundle, routes, excluded_n
                 contact.first_byte_tx_time = early_tx_opportunity
             else:
                 contact.first_byte_tx_time = max(contact.start, prev_last_byte_arr_time)
-            bundle_tx_time = bundle.size / contact.rate
-            contact.last_byte_tx_time = contact.first_byte_tx_time + bundle_tx_time
+            ipv6_packet_tx_time = ipv6_packet.size / contact.rate
+            contact.last_byte_tx_time = contact.first_byte_tx_time + ipv6_packet_tx_time
             contact.last_byte_arr_time = contact.last_byte_tx_time + contact.owlt
             prev_last_byte_arr_time = contact.last_byte_arr_time
         proj_arr_time = prev_last_byte_arr_time
-        if proj_arr_time > bundle.deadline:
+        if proj_arr_time > ipv6_packet.deadline:
             if debug:
                 print("not candidate: projected arrival time is later than deadline")
             continue
 
-        # 3.2.6.9 f) if route depleted for bundle priority P, ignore
-        reserved_volume_p = 0  # todo: sum of al bundle.evc with p or higher that were forwarded via this route
+        # 3.2.6.9 f) if route depleted for ipv6_packet priority P, ignore
+        reserved_volume_p = 0  # todo: sum of al ipv6_packet.evc with p or higher that were forwarded via this route
         min_effective_volume_limit = sys.maxsize
         for contact in route.hops:
             if reserved_volume_p >= contact.volume:
                 if debug:
-                    print("not candidate: route depleted for bundle priority")
+                    print("not candidate: route depleted for ipv6_packet priority")
                 continue
 
             effective_start_time = contact.first_byte_tx_time
@@ -866,21 +844,17 @@ def fwd_candidate(curr_time, curr_node, contact_plan, bundle, routes, excluded_n
             effective_stop_time = min(contact.end, min_succ_stop_time)
             effective_duration = effective_stop_time - effective_start_time
             contact.effective_volume_limit = min(effective_duration * contact.rate,
-                                                 contact.mav[bundle.priority])
+                                                 contact.mav[ipv6_packet.priority])
             if contact.effective_volume_limit < min_effective_volume_limit:
                 min_effective_volume_limit = contact.effective_volume_limit
         route_volume_limit = min_effective_volume_limit
         if route_volume_limit <= 0:
             if debug:
-                print("not candidate: route is depleted for the bundle priority")
+                print("not candidate: route is depleted for the ipv6_packet priority")
             continue
 
-        # 3.2.6.9 g) if frag is False and route rvl(P) < bundle.evc, ignore
-        if not bundle.fragment:
-            if route_volume_limit < bundle.evc:
-                if debug:
-                    print("not candidate: route volume limit is less than bundle evc and no fragment allowed")
-                continue
+        # 3.2.6.9 g) if frag is False and route rvl(P) < ipv6_packet.evc, ignore
+        # not implemented
 
         if debug:
             print("new candidate:", route)

@@ -1,7 +1,7 @@
 import sys
 from py_cgr_lib.py_cgr_lib import Contact
 from py_cgr_lib.py_cgr_lib import Route
-from py_cgr_lib.py_cgr_lib import Bundle
+from py_cgr_lib.py_cgr_lib import ipv6_packet
 from py_cgr_lib.py_cgr_lib import cp_load
 from py_cgr_lib.py_cgr_lib import cgr_dijkstra
 from py_cgr_lib.py_cgr_lib import cgr_anchor
@@ -73,7 +73,7 @@ for route in routes:
 # get candidate routes to forward bundle
 print("---candidate---")
 excluded_nodes = []
-bundle = Bundle(src=1, dst=5, size=2, deadline=50, priority=0)
-candidate_routes = fwd_candidate(curr_time=0, curr_node=1, contact_plan=contact_plan, bundle=bundle, routes=routes, excluded_nodes=excluded_nodes)
+ipv6_packet = ipv6_packet(src=1, dst=5, size=2, deadline=50, priority=0)
+candidate_routes = fwd_candidate(curr_time=0, curr_node=1, contact_plan=contact_plan, ipv6_packet=ipv6_packet, routes=routes, excluded_nodes=excluded_nodes)
 for route in candidate_routes:
     print(route)
