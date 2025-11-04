@@ -97,9 +97,8 @@ int main(void) {
         fprintf(stderr, "ip6_addr_to_str dest failed\n"); return 1; 
     }
 
-    printf("local textual: %s\n", curr_node_s);
-    printf("dst textual: %s\n", dst_s);
-    printf("size(_plen)=%u hoplim=%u\n", _plen, _hoplim);
+    printf("local: %s\n", curr_node_s);
+    printf("dst: %s\n", dst_s);
 
     //python initialize
     Py_Initialize();
@@ -199,7 +198,7 @@ int main(void) {
 
     //we check the next hop for the best route
     if (PyList_Check(candidates) && PyList_Size(candidates) > 0) {
-        PyObject *first = PyList_GetItem(candidates, 0); /* borrowed */
+        PyObject *first = PyList_GetItem(candidates, 0);
         PyObject *pNextNode = PyObject_GetAttrString(first, "next_node");
         if (pNextNode) {
             if (PyLong_Check(pNextNode)) {
@@ -231,7 +230,6 @@ int main(void) {
     Py_XDECREF(py_cgr_yen);
     Py_XDECREF(py_fwd_candidate);
     Py_XDECREF(py_ipv6_packet_cls);
-    py_cleanup_module:
     Py_DECREF(pModule);
     Py_Finalize();
     return 0;
