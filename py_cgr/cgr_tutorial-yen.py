@@ -20,7 +20,6 @@ for route in routes:
 
 print("---forward---")
 excluded_nodes = []
-ipv6_packet = ipv6_packet(src=1, dst=5, size=1, deadline=6000000, priority=8) #lower priority
+ipv6_packet = ipv6_packet(dst=5, size=1, deadline=6000000, priority=8) #lower priority
 candidate_routes = fwd_candidate(curr_time, source, contact_plan, ipv6_packet, routes, excluded_nodes)
-print(candidate_routes[0])
 print("next hop:", candidate_routes[0].next_node)
