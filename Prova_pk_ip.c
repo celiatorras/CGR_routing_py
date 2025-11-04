@@ -101,20 +101,18 @@ int main(void) {
     printf("dst textual: %s\n", dst_s);
     printf("size(_plen)=%u hoplim=%u\n", _plen, _hoplim);
 
-    /* ------------------ inicialitzem Python embegit ------------------ */
+    //python initialize
     Py_Initialize();
     if (!Py_IsInitialized()) {
         fprintf(stderr, "Python not initialized\n");
         return 1;
     }
 
-    /* Afegim directori actual al sys.path perquè puguem importar py_cgr_lib package */
     PyObject *sys_path = PySys_GetObject("path");
     PyObject *py_pth = PyUnicode_FromString("."); 
     PyList_Append(sys_path, py_pth);
     Py_DECREF(py_pth);
 
-    /* Importem el mòdul py_cgr_lib.py_cgr_lib */
     PyObject *pModule = PyImport_ImportModule("py_cgr_lib.py_cgr_lib");
     if (!pModule) {
         PyErr_Print();
@@ -123,19 +121,12 @@ int main(void) {
         return 1;
     }
 
-    /* Obtenim referències a les funcions/classe */
     PyObject *py_cp_load = PyObject_GetAttrString(pModule, "cp_load");
     PyObject *py_cgr_yen = PyObject_GetAttrString(pModule, "cgr_yen");
     PyObject *py_fwd_candidate = PyObject_GetAttrString(pModule, "fwd_candidate");
     PyObject *py_ipv6_packet_cls = PyObject_GetAttrString(pModule, "ipv6_packet");
 
-    if (!py_cp_load || !py_cgr_yen || !py_fwd_candidate || !py_ipv6_packet_cls) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: missing attribute(s) in py_cgr_lib\n");
-        goto py_cleanup_module;
-    }
-
-    /* ------------------ cridem cp_load ------------------ */
+    /* ------------------ cp_load ------------------ */
     PyObject *args_load = PyTuple_New(2);
     PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial.txt"));
     PyTuple_SetItem(args_load, 1, PyLong_FromLong(5000));
@@ -147,7 +138,7 @@ int main(void) {
         goto py_cleanup_funcs;
     }
 
-    /* ------------------ cridem cgr_yen ------------------ */
+    /* ------------------ cgr_yen ------------------ */
     long curr_node = ipv6_to_nodeid(curr_node_s);
     long dest_node   = ipv6_to_nodeid(dst_s);
     if (curr_node < 0 || dest_node < 0) {
@@ -206,6 +197,7 @@ int main(void) {
         goto py_cleanup_pkt;
     }
 
+    //we check the next hop for the best route
     if (PyList_Check(candidates) && PyList_Size(candidates) > 0) {
         PyObject *first = PyList_GetItem(candidates, 0); /* borrowed */
         PyObject *pNextNode = PyObject_GetAttrString(first, "next_node");
