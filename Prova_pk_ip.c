@@ -1,3 +1,6 @@
+//compile --> gcc Prova_pk_ip.c -o Prova_pk_ip $(python3-config --cflags --ldflags --embed)
+//execute --> ./Prova_pk_ipa
+
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <stdio.h>
@@ -13,7 +16,7 @@ typedef uint8_t  u8_t;
 
 struct ip6_addr {
     u32_t addr[4];
-    // u8_t zone; // no considerem zone aquí
+    // u8_t zone; // todo
 };
 typedef struct ip6_addr ip6_addr_t;
 
@@ -62,10 +65,9 @@ int main(void) {
     u32_t _v_tc_fl = 0x60000000;     // version(4) + traffic class(8) + flow label(20) 
     u16_t _plen = 200;               // payload length 
     u8_t  _hoplim = 64;              // hop limit -> lifetime 
-    ip6_addr_t local;
-    ip6_addr_t dest;
+    ip6_addr_t local;                // current node
+    ip6_addr_t dest;                 // destination of the pkt
 
-    memset(&dest, 0, sizeof(dest));
     unsigned char tmpbuf[16];
 
     if (inet_pton(AF_INET6, "fd00:01::1", tmpbuf) != 1) {
@@ -102,10 +104,6 @@ int main(void) {
 
     //python initialize
     Py_Initialize();
-    if (!Py_IsInitialized()) {
-        fprintf(stderr, "Python not initialized\n");
-        return 1;
-    }
 
     PyObject *sys_path = PySys_GetObject("path");
     PyObject *py_pth = PyUnicode_FromString("."); 
@@ -113,37 +111,22 @@ int main(void) {
     Py_DECREF(py_pth);
 
     PyObject *pModule = PyImport_ImportModule("py_cgr_lib.py_cgr_lib");
-    if (!pModule) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: cannot import py_cgr_lib.py_cgr_lib\n");
-        Py_Finalize();
-        return 1;
-    }
 
     PyObject *py_cp_load = PyObject_GetAttrString(pModule, "cp_load");
     PyObject *py_cgr_yen = PyObject_GetAttrString(pModule, "cgr_yen");
     PyObject *py_fwd_candidate = PyObject_GetAttrString(pModule, "fwd_candidate");
-    PyObject *py_ipv6_packet_cls = PyObject_GetAttrString(pModule, "ipv6_packet");
+    PyObject *py_ipv6_packet = PyObject_GetAttrString(pModule, "ipv6_packet");
 
-    /* ------------------ cp_load ------------------ */
+    // cp_load
     PyObject *args_load = PyTuple_New(2);
     PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial.txt"));
     PyTuple_SetItem(args_load, 1, PyLong_FromLong(5000));
     PyObject *contact_plan = PyObject_CallObject(py_cp_load, args_load);
     Py_DECREF(args_load);
-    if (!contact_plan) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: cp_load failed\n");
-        goto py_cleanup_funcs;
-    }
 
-    /* ------------------ cgr_yen ------------------ */
+    // cgr_yen
     long curr_node = ipv6_to_nodeid(curr_node_s);
     long dest_node   = ipv6_to_nodeid(dst_s);
-    if (curr_node < 0 || dest_node < 0) {
-        fprintf(stderr, "Mapping IPv6->node failed: src=%ld dst=%ld\n", curr_node, dest_node);
-        goto py_cleanup_contact_plan;
-    }
 
     double curr_time = (double)time(NULL);
     PyObject *args_yen = PyTuple_New(5);
@@ -154,13 +137,8 @@ int main(void) {
     PyTuple_SetItem(args_yen, 4, PyLong_FromLong(10)); 
     PyObject *routes = PyObject_CallObject(py_cgr_yen, args_yen);
     Py_DECREF(args_yen);
-    if (!routes) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: cgr_yen failed\n");
-        goto py_cleanup_contact_plan;
-    }
 
-    /* ------------------ ipv6_packet ------------------ */
+    // ipv6_packet
     long size = _plen;
     long deadline = _hoplim*100000; //multiplying factor to transform to lifetime
     uint8_t tc = (uint8_t)((_v_tc_fl >> 20) & 0xFF); // traffic class (8 bits) 
@@ -171,13 +149,8 @@ int main(void) {
     PyTuple_SetItem(args_pkt, 1, PyLong_FromLong(size));
     PyTuple_SetItem(args_pkt, 2, PyLong_FromLong(deadline));
     PyTuple_SetItem(args_pkt, 3, PyLong_FromLong(dscp));
-    PyObject *ipv6pkt = PyObject_CallObject(py_ipv6_packet_cls, args_pkt);
+    PyObject *ipv6pkt = PyObject_CallObject(py_ipv6_packet, args_pkt);
     Py_DECREF(args_pkt);
-    if (!ipv6pkt) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: creating ipv6_packet failed\n");
-        goto py_cleanup_routes;
-    }
 
     /* ------------------ fwd_candidate ------------------ */
     PyObject *excluded_nodes = PyList_New(0);
@@ -190,11 +163,6 @@ int main(void) {
     PyTuple_SetItem(args_fwd, 5, excluded_nodes);
     PyObject *candidates = PyObject_CallObject(py_fwd_candidate, args_fwd);
     Py_DECREF(args_fwd);
-    if (!candidates) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: fwd_candidate failed\n");
-        goto py_cleanup_pkt;
-    }
 
     //we check the next hop for the best route
     if (PyList_Check(candidates) && PyList_Size(candidates) > 0) {
@@ -219,17 +187,6 @@ int main(void) {
     }
 
     Py_DECREF(candidates);
-    py_cleanup_pkt:
-    Py_DECREF(ipv6pkt);
-    py_cleanup_routes:
-    Py_DECREF(routes);
-    py_cleanup_contact_plan:
-    Py_DECREF(contact_plan);
-    py_cleanup_funcs:
-    Py_XDECREF(py_cp_load);
-    Py_XDECREF(py_cgr_yen);
-    Py_XDECREF(py_fwd_candidate);
-    Py_XDECREF(py_ipv6_packet_cls);
     Py_DECREF(pModule);
     Py_Finalize();
     return 0;
