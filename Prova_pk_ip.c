@@ -1,3 +1,4 @@
+//needed library --> export LD_LIBRARY_PATH="/home/celia/Baixades/ENTER/lib:$LD_LIBRARY_PATH"
 //compile --> gcc Prova_pk_ip.c -o Prova_pk_ip $(python3-config --cflags --ldflags --embed)
 //execute --> ./Prova_pk_ipa
 
@@ -10,9 +11,9 @@
 #include <time.h>
 #include <ctype.h>
 
-typedef uint32_t u32_t;
-typedef uint16_t u16_t;
-typedef uint8_t  u8_t;
+typedef uint32_t u32_t; //4 bytes
+typedef uint16_t u16_t; //2 bytes
+typedef uint8_t  u8_t;  //1 byte
 
 struct ip6_addr {
     u32_t addr[4];
@@ -60,6 +61,32 @@ long ipv6_to_nodeid(const char *ip6) {
     return -1;
 }
 
+//this function should be diferent for every node
+//for node 0 
+int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
+
+    const char *addr_txt = NULL;
+    switch (node_id) {
+        case 2: addr_txt = "fd00:01::2"; break;
+        case 3: addr_txt = "fd00:12::2"; break;
+        case 4: addr_txt = "fd00:23::3"; break;
+        default: return -1;
+    }
+
+    unsigned char tmpbuf[16];
+    if (inet_pton(AF_INET6, addr_txt, tmpbuf) != 1) {
+        return -1;
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        uint32_t w = (tmpbuf[i*4 + 0] << 24) |
+                     (tmpbuf[i*4 + 1] << 16) |
+                     (tmpbuf[i*4 + 2] << 8 ) |
+                     (tmpbuf[i*4 + 3] << 0 );
+        out->addr[i] = ntohl(w);
+    }
+    return 0;
+}
 
 int main(void) {
     u32_t _v_tc_fl = 0x60000000;     // version(4) + traffic class(8) + flow label(20) 
@@ -119,7 +146,7 @@ int main(void) {
 
     // cp_load
     PyObject *args_load = PyTuple_New(2);
-    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial.txt"));
+    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial_3.txt"));
     PyTuple_SetItem(args_load, 1, PyLong_FromLong(5000));
     PyObject *contact_plan = PyObject_CallObject(py_cp_load, args_load);
     Py_DECREF(args_load);
@@ -140,7 +167,7 @@ int main(void) {
 
     // ipv6_packet
     long size = _plen;
-    long deadline = _hoplim*100000; //multiplying factor to transform to lifetime
+    long deadline = _hoplim*10; //multiplying factor to transform to lifetime
     uint8_t tc = (uint8_t)((_v_tc_fl >> 20) & 0xFF); // traffic class (8 bits) 
     uint8_t dscp = (uint8_t)(tc >> 2);               // DSCP = TC[7:2] (6 bits)
 
@@ -166,14 +193,26 @@ int main(void) {
 
     //we check the next hop for the best route
     if (PyList_Check(candidates) && PyList_Size(candidates) > 0) {
-        PyObject *first = PyList_GetItem(candidates, 0);
-        PyObject *pNextNode = PyObject_GetAttrString(first, "next_node");
+        PyObject *first = PyList_GetItem(candidates, 0); /* borrowed reference */
+        PyObject *pNextNode = PyObject_GetAttrString(first, "next_node"); /* new ref or NULL */
         if (pNextNode) {
-            if (PyLong_Check(pNextNode)) {
-                long next_node = PyLong_AsLong(pNextNode);
-                printf("Next hop node id: %ld\n", next_node);
-            } else if (pNextNode == Py_None) {
+            if (pNextNode == Py_None) {
                 printf("Next hop: None\n");
+            } else if (PyLong_Check(pNextNode)) {
+                long next_node = PyLong_AsLong(pNextNode);
+                ip6_addr_t next_ip;
+                if (nodeid_to_ipv6(next_node, &next_ip) == 0) {
+                    //printf("Next hop node: %ld\n", next_node);
+                    char next_ip_s[INET6_ADDRSTRLEN];
+                    if (ip6_addr_to_str(&next_ip, next_ip_s, sizeof(next_ip_s)) == 0) {
+                        printf("Next hop ipv6: %s\n", next_ip_s);
+                    } else {
+                        fprintf(stderr, "Failed to stringify next_ip for node %ld\n", next_node);
+                    }
+                } else {
+                    fprintf(stderr, "No mapping nodeid->ipv6 for node %ld\n", next_node);
+                }
+
             } else {
                 printf("Next hop: (non-int)\n");
             }
