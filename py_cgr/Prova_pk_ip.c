@@ -146,7 +146,7 @@ int main(void) {
 
     // cp_load
     PyObject *args_load = PyTuple_New(2);
-    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial_5.txt"));
+    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial_1.txt"));
     PyTuple_SetItem(args_load, 1, PyLong_FromLong(5000));
     PyObject *contact_plan = PyObject_CallObject(py_cp_load, args_load);
     PyObject *repr_cp = PyObject_Repr(contact_plan);
