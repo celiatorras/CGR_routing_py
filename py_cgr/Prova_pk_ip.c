@@ -1,3 +1,7 @@
+//needed library --> export LD_LIBRARY_PATH="/home/celia/Baixades/ENTER/lib:$LD_LIBRARY_PATH"
+//compile --> gcc Prova_pk_ip.c -o Prova_pk_ip $(python3-config --cflags --ldflags --embed)
+//execute --> ./Prova_pk_ipa
+
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <stdio.h>
@@ -7,23 +11,20 @@
 #include <time.h>
 #include <ctype.h>
 
-/* Tipus reinclosos del teu codi */
-typedef uint32_t u32_t;
-typedef uint16_t u16_t;
-typedef uint8_t  u8_t;
+typedef uint32_t u32_t; //4 bytes
+typedef uint16_t u16_t; //2 bytes
+typedef uint8_t  u8_t;  //1 byte
 
 struct ip6_addr {
     u32_t addr[4];
-    // u8_t zone; // no considerem zone aquí
+    // u8_t zone; // todo
 };
 typedef struct ip6_addr ip6_addr_t;
 
-/* Converteix ip6_addr_t a string textual IPv6 */
 int ip6_addr_to_str(const ip6_addr_t *a, char *buf, size_t buflen) {
     if (!a || !buf) return -1;
     unsigned char tmp[16];
     for (int i = 0; i < 4; ++i) {
-        /* assumim que a->addr[i] està en host order; posem en network order per a inet_ntop */
         uint32_t w = htonl(a->addr[i]);
         tmp[i*4 + 0] = (w >> 24) & 0xFF;
         tmp[i*4 + 1] = (w >> 16) & 0xFF;
@@ -34,78 +35,78 @@ int ip6_addr_to_str(const ip6_addr_t *a, char *buf, size_t buflen) {
     return 0;
 }
 
-/* Heurística simple per mapar textual IPv6 -> node id (int)
-   - Si l'adreça comença per "fd00::", pren el sufix i interpreta'l com hex o decimal.
-   - Ex: fd00::1 -> 1; fd00::A -> 10
-   - Si no coincideix, retorna -1 (mapping failed).
-   Pots substituir aquesta funció per llegir un fitxer de mapatge o taula. */
-long ipv6_to_nodeid_heuristic(const char *ip6) {
-    if (!ip6) return -1;
-    const char *p = NULL;
-    /* busquem el prefix "fd00::" o "fd00:" */
-    if (strncmp(ip6, "fd00::", 6) == 0) p = ip6 + 6;
-    else if (strncmp(ip6, "fd00:", 5) == 0) p = ip6 + 5;
-    else return -1;
+long ipv6_to_nodeid(const char *ip6) {
 
-    if (*p == '\0') return -1;
+    // Node 0 (id = 1)
+    if (strcmp(ip6, "fd00:01::1") == 0) return 1;
+    if (strcmp(ip6, "fd00:1::1") == 0) return 1; //todo
 
-    /* p apunta al sufix; acceptem números hex o decimal.
-       Remove possible scope or brackets (rare) */
-    char clean[64];
-    size_t j = 0;
-    for (size_t i = 0; p[i] && j+1 < sizeof(clean); ++i) {
-        char c = p[i];
-        if (c == '%') break; /* zone index */
-        if (c == ']') break;
-        if (c == '/') break;
-        if (c == ':') break; /* if there is further hextets, bail */
-        if (!isspace((unsigned char)c)) clean[j++] = c;
-    }
-    clean[j] = '\0';
-    if (j == 0) return -1;
+    // Node 1 (id = 2)
+    if (strcmp(ip6, "fd00:01::2") == 0) return 2;
+    if (strcmp(ip6, "fd00:12::1") == 0) return 2;
+    if (strcmp(ip6, "fd00::1") == 0) return 2;
+    if (strcmp(ip6, "fd00::2") == 0) return 2;
 
-    /* try as hex first if contains hex letters, else decimal */
-    int is_hex = 0;
-    for (size_t i=0;i<j;i++) {
-        if ((clean[i] >= 'a' && clean[i] <= 'f') || (clean[i] >= 'A' && clean[i] <= 'F')) {
-            is_hex = 1; break;
-        }
+    // Node 2 (id = 3)
+    if (strcmp(ip6, "fd00:12::2") == 0) return 3;
+    if (strcmp(ip6, "fd00:23::2") == 0) return 3;
+    if (strcmp(ip6, "fd00:22::1") == 0) return 3;
+    if (strcmp(ip6, "fd00:22::2") == 0) return 3;
+
+    // Node 3 (id = 4)
+    if (strcmp(ip6, "fd00:23::3") == 0) return 4;
+    if (strcmp(ip6, "fd00:33::1") == 0) return 4;
+    if (strcmp(ip6, "fd00:33::2") == 0) return 4;
+
+    return -1;
+}
+
+//this function should be diferent for every node
+//for node 0 
+int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
+
+    const char *addr_txt = NULL;
+    switch (node_id) {
+        case 2: addr_txt = "fd00:01::2"; break;
+        case 3: addr_txt = "fd00:12::2"; break;
+        case 4: addr_txt = "fd00:23::3"; break;
+        default: return -1;
     }
-    char *endptr = NULL;
-    long val = 0;
-    if (is_hex) {
-        val = strtol(clean, &endptr, 16);
-    } else {
-        val = strtol(clean, &endptr, 10);
+
+    unsigned char tmpbuf[16];
+    if (inet_pton(AF_INET6, addr_txt, tmpbuf) != 1) {
+        return -1;
     }
-    if (endptr == clean) return -1;
-    return val;
+
+    for (int i = 0; i < 4; ++i) {
+        uint32_t w = (tmpbuf[i*4 + 0] << 24) |
+                     (tmpbuf[i*4 + 1] << 16) |
+                     (tmpbuf[i*4 + 2] << 8 ) |
+                     (tmpbuf[i*4 + 3] << 0 );
+        out->addr[i] = ntohl(w);
+    }
+    return 0;
 }
 
 int main(void) {
-    /* ------------------ Definicions/vars com les teves ------------------ */
-    u32_t _v_tc_fl = 0x60000000;     /* version(4) + traffic class(8) + flow label(20) */
-    u16_t _plen = 200;               /* payload length */
-    u8_t  _hoplim = 64;              /* hop limit -> lifetime */
-    ip6_addr_t src;
-    ip6_addr_t dest;
+    u32_t _v_tc_fl = 0x60000000;     // version(4) + traffic class(8) + flow label(20) 
+    u16_t _plen = 200;               // payload length 
+    u8_t  _hoplim = 64;              // hop limit -> lifetime 
+    ip6_addr_t local;                // current node
+    ip6_addr_t dest;                 // destination of the pkt
 
-    /* Inicialitzem adreces d'exemple (host-order storage) */
-    memset(&src, 0, sizeof(src));
-    memset(&dest, 0, sizeof(dest));
     unsigned char tmpbuf[16];
 
-    if (inet_pton(AF_INET6, "fd00::1", tmpbuf) != 1) {
-        fprintf(stderr, "inet_pton src failed\n");
+    if (inet_pton(AF_INET6, "fd00:01::1", tmpbuf) != 1) {
+        fprintf(stderr, "inet_pton local address failed\n");
         return 1;
     }
-    /* guardem en quatre words (host order) */
     for (int i=0;i<4;i++) {
         uint32_t w = (tmpbuf[i*4+0] << 24) | (tmpbuf[i*4+1] << 16) | (tmpbuf[i*4+2] << 8) | (tmpbuf[i*4+3]);
-        src.addr[i] = ntohl(w);
+        local.addr[i] = ntohl(w);
     }
 
-    if (inet_pton(AF_INET6, "fd00::5", tmpbuf) != 1) {
+    if (inet_pton(AF_INET6, "fd00:23::3", tmpbuf) != 1) {
         fprintf(stderr, "inet_pton dest failed\n");
         return 1;
     }
@@ -114,143 +115,165 @@ int main(void) {
         dest.addr[i] = ntohl(w);
     }
 
-    /* Convertim adreces a text per passar a Python i per fer mapping */
-    char src_s[INET6_ADDRSTRLEN], dst_s[INET6_ADDRSTRLEN];
-    if (ip6_addr_to_str(&src, src_s, sizeof(src_s)) != 0) {
-        fprintf(stderr, "ip6_addr_to_str src failed\n");
-        return 1;
-    }
-    if (ip6_addr_to_str(&dest, dst_s, sizeof(dst_s)) != 0) {
-        fprintf(stderr, "ip6_addr_to_str dest failed\n");
-        return 1;
+    //conver address to string to print
+    char curr_node_s[INET6_ADDRSTRLEN], dst_s[INET6_ADDRSTRLEN]; 
+
+    if (ip6_addr_to_str(&local, curr_node_s, sizeof(curr_node_s)) != 0) { 
+        fprintf(stderr, "ip6_addr_to_str local address failed\n"); return 1;
+    } 
+    
+    if (ip6_addr_to_str(&dest, dst_s, sizeof(dst_s)) != 0) { 
+        fprintf(stderr, "ip6_addr_to_str dest failed\n"); return 1; 
     }
 
-    printf("src textual: %s\n", src_s);
-    printf("dst textual: %s\n", dst_s);
-    printf("size(_plen)=%u hoplim=%u\n", _plen, _hoplim);
+    printf("local: %s\n", curr_node_s);
+    printf("dst: %s\n", dst_s);
 
-    /* ------------------ inicialitzem Python embegit ------------------ */
+    //python initialize
     Py_Initialize();
-    if (!Py_IsInitialized()) {
-        fprintf(stderr, "Python not initialized\n");
-        return 1;
-    }
 
-    /* Afegim directori actual al sys.path perquè puguem importar py_cgr_lib package */
     PyObject *sys_path = PySys_GetObject("path");
     PyObject *py_pth = PyUnicode_FromString("."); 
     PyList_Append(sys_path, py_pth);
     Py_DECREF(py_pth);
 
-    /* Importem el mòdul py_cgr_lib.py_cgr_lib */
     PyObject *pModule = PyImport_ImportModule("py_cgr_lib.py_cgr_lib");
-    if (!pModule) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: cannot import py_cgr_lib.py_cgr_lib\n");
-        Py_Finalize();
-        return 1;
-    }
 
-    /* Obtenim referències a les funcions/classe */
     PyObject *py_cp_load = PyObject_GetAttrString(pModule, "cp_load");
     PyObject *py_cgr_yen = PyObject_GetAttrString(pModule, "cgr_yen");
     PyObject *py_fwd_candidate = PyObject_GetAttrString(pModule, "fwd_candidate");
-    PyObject *py_ipv6_packet_cls = PyObject_GetAttrString(pModule, "ipv6_packet");
+    PyObject *py_ipv6_packet = PyObject_GetAttrString(pModule, "ipv6_packet");
 
-    if (!py_cp_load || !py_cgr_yen || !py_fwd_candidate || !py_ipv6_packet_cls) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: missing attribute(s) in py_cgr_lib\n");
-        goto py_cleanup_module;
-    }
-
-    /* ------------------ cridem cp_load ------------------ */
+    // cp_load
     PyObject *args_load = PyTuple_New(2);
-    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial.txt"));
+    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial_5.txt"));
     PyTuple_SetItem(args_load, 1, PyLong_FromLong(5000));
     PyObject *contact_plan = PyObject_CallObject(py_cp_load, args_load);
-    Py_DECREF(args_load);
-    if (!contact_plan) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: cp_load failed\n");
-        goto py_cleanup_funcs;
-    }
-    /* imprimim nombre de contacts (len) si és llista */
-    if (PyList_Check(contact_plan)) {
-        long n = PyList_Size(contact_plan);
-        printf("Loaded contacts: %ld\n", n);
+    PyObject *repr_cp = PyObject_Repr(contact_plan);
+    if (repr_cp) {
+        const char *s = PyUnicode_AsUTF8(repr_cp);
+        fprintf(stderr, "[DBG] contact_plan repr: %s\n", s ? s : "<NULL>");
+        Py_DECREF(repr_cp);
     } else {
-        printf("cp_load returned non-list (proceeding)\n");
-    }
-
-    /* ------------------ cridem cgr_yen ------------------ */
-    long source_node = ipv6_to_nodeid_heuristic(src_s);
-    long dest_node   = ipv6_to_nodeid_heuristic(dst_s);
-    if (source_node < 0 || dest_node < 0) {
-        fprintf(stderr, "Mapping IPv6->node failed: src=%ld dst=%ld\n", source_node, dest_node);
-        goto py_cleanup_contact_plan;
-    }
-
-    double curr_time = (double)time(NULL);
-    PyObject *args_yen = PyTuple_New(5);
-    PyTuple_SetItem(args_yen, 0, PyLong_FromLong(source_node));
-    PyTuple_SetItem(args_yen, 1, PyLong_FromLong(dest_node));
-    PyTuple_SetItem(args_yen, 2, PyFloat_FromDouble(curr_time));
-    PyTuple_SetItem(args_yen, 3, contact_plan); /* transfers ref to tuple */
-    PyTuple_SetItem(args_yen, 4, PyLong_FromLong(10)); /* num_routes */
-    PyObject *routes = PyObject_CallObject(py_cgr_yen, args_yen);
-    Py_DECREF(args_yen);
-    if (!routes) {
+        fprintf(stderr, "[DBG] contact_plan repr failed\n");
         PyErr_Print();
-        fprintf(stderr, "ERROR: cgr_yen failed\n");
-        goto py_cleanup_contact_plan;
     }
+    Py_DECREF(args_load);
 
-    /* ------------------ crea ipv6_packet(dst, size, deadline, priority) ------------------ */
+    // cgr_yen
+    long curr_node_id = ipv6_to_nodeid(curr_node_s);
+    long dest_node_id   = ipv6_to_nodeid(dst_s);
+
+    double curr_time = 0; //the reference time is 0
+    PyObject *args_yen = PyTuple_New(5);
+    PyTuple_SetItem(args_yen, 0, PyLong_FromLong(curr_node_id));
+    PyTuple_SetItem(args_yen, 1, PyLong_FromLong(dest_node_id));
+    PyTuple_SetItem(args_yen, 2, PyFloat_FromDouble(curr_time));
+    PyTuple_SetItem(args_yen, 3, contact_plan);
+    PyTuple_SetItem(args_yen, 4, PyLong_FromLong(10)); 
+    PyObject *routes = PyObject_CallObject(py_cgr_yen, args_yen);
+    PyObject *repr_r = PyObject_Repr(routes);
+    if (repr_r) {
+        const char *sr = PyUnicode_AsUTF8(repr_r);
+        fprintf(stderr, "[DBG] routes repr: %s\n", sr ? sr : "<NULL>");
+        Py_DECREF(repr_r);
+    } else {
+        fprintf(stderr, "[DBG] routes repr failed\n");
+        PyErr_Print();
+    }
+    if (PyList_Check(routes)) {
+        fprintf(stderr, "[DBG] routes length: %ld\n", PyList_Size(routes));
+    } else {
+        fprintf(stderr, "[DBG] routes is not a list (type=%s)\n", routes->ob_type->tp_name);
+    }
+    Py_DECREF(args_yen);
+
+    // ipv6_packet
     long size = _plen;
-    long deadline = (long)6000000; 
-    uint8_t tc = (uint8_t)((_v_tc_fl >> 20) & 0xFF); /* traffic class (8 bits) */
-    uint8_t dscp = (uint8_t)(tc >> 2);              /* DSCP = TC[7:2] (6 bits) */
+    long deadline = _hoplim*10; //multiplying factor to transform to lifetime
+    uint8_t tc = (uint8_t)((_v_tc_fl >> 20) & 0xFF); // traffic class (8 bits) 
+    uint8_t dscp = (uint8_t)(tc >> 2);               // DSCP = TC[7:2] (6 bits)
 
     PyObject *args_pkt = PyTuple_New(4);
-    PyTuple_SetItem(args_pkt, 0, PyLong_FromLong(dest_node));
+    PyTuple_SetItem(args_pkt, 0, PyLong_FromLong(dest_node_id));
     PyTuple_SetItem(args_pkt, 1, PyLong_FromLong(size));
     PyTuple_SetItem(args_pkt, 2, PyLong_FromLong(deadline));
     PyTuple_SetItem(args_pkt, 3, PyLong_FromLong(dscp));
-    PyObject *ipv6pkt = PyObject_CallObject(py_ipv6_packet_cls, args_pkt);
+    PyObject *ipv6pkt = PyObject_CallObject(py_ipv6_packet, args_pkt);
     Py_DECREF(args_pkt);
-    if (!ipv6pkt) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: creating ipv6_packet failed\n");
-        goto py_cleanup_routes;
-    }
 
-    /* ------------------ cridem fwd_candidate(curr_time, source, contact_plan, ipv6_pkt, routes, excluded_nodes) ------------------ */
+    /* ------------------ fwd_candidate ------------------ */
     PyObject *excluded_nodes = PyList_New(0);
     PyObject *args_fwd = PyTuple_New(6);
     PyTuple_SetItem(args_fwd, 0, PyFloat_FromDouble(curr_time));
-    PyTuple_SetItem(args_fwd, 1, PyLong_FromLong(source_node));
+    PyTuple_SetItem(args_fwd, 1, PyLong_FromLong(curr_node_id));
     PyTuple_SetItem(args_fwd, 2, contact_plan);
     PyTuple_SetItem(args_fwd, 3, ipv6pkt);
     PyTuple_SetItem(args_fwd, 4, routes);
     PyTuple_SetItem(args_fwd, 5, excluded_nodes);
     PyObject *candidates = PyObject_CallObject(py_fwd_candidate, args_fwd);
-    Py_DECREF(args_fwd);
-    if (!candidates) {
-        PyErr_Print();
-        fprintf(stderr, "ERROR: fwd_candidate failed\n");
-        goto py_cleanup_pkt;
-    }
+    if (candidates) {
+    PyObject *repr_c = PyObject_Repr(candidates);
+    const char *sc = PyUnicode_AsUTF8(repr_c);
+    fprintf(stderr, "[DBG] candidates repr: %s\n", sc? sc : "<NULL>");
+    Py_XDECREF(repr_c);
+        if (PyList_Check(candidates)) {
+            long n = PyList_Size(candidates);
+            fprintf(stderr, "[DBG] candidates length: %ld\n", n);
+            for (long i = 0; i < n; ++i) {
+                PyObject *it = PyList_GetItem(candidates, i); // borrowed
+                PyObject *repr_it = PyObject_Repr(it);
+                const char *si = PyUnicode_AsUTF8(repr_it);
+                fprintf(stderr, "[DBG] candidate[%ld] repr: %s\n", i, si? si : "<NULL>");
+                Py_XDECREF(repr_it);
 
-    /* ------------------ llegim candidate[0].next_node ------------------ */
+                // try to print next_node attr if present
+                PyObject *pNextNode = PyObject_GetAttrString(it, "next_node");
+                if (pNextNode) {
+                    if (pNextNode == Py_None) {
+                        fprintf(stderr, "[DBG] candidate[%ld] next_node = None\n", i);
+                    } else if (PyLong_Check(pNextNode)) {
+                        fprintf(stderr, "[DBG] candidate[%ld] next_node = %ld\n", i, PyLong_AsLong(pNextNode));
+                    } else {
+                        fprintf(stderr, "[DBG] candidate[%ld] next_node has non-int type (%s)\n", i, pNextNode->ob_type->tp_name);
+                    }
+                    Py_DECREF(pNextNode);
+                } else {
+                    PyErr_Clear();
+                    fprintf(stderr, "[DBG] candidate[%ld] has no next_node\n", i);
+                }
+            }
+        } else {
+            fprintf(stderr, "[DBG] candidates is not a list (type=%s)\n", candidates->ob_type->tp_name);
+        }
+    } else {
+        fprintf(stderr, "[DBG] candidates is NULL\n");
+        PyErr_Print();
+    }
+    Py_DECREF(args_fwd);
+
+    //we check the next hop for the best route
     if (PyList_Check(candidates) && PyList_Size(candidates) > 0) {
-        PyObject *first = PyList_GetItem(candidates, 0); /* borrowed */
-        PyObject *pNextNode = PyObject_GetAttrString(first, "next_node");
+        PyObject *first = PyList_GetItem(candidates, 0); /* borrowed reference */
+        PyObject *pNextNode = PyObject_GetAttrString(first, "next_node"); /* new ref or NULL */
         if (pNextNode) {
-            if (PyLong_Check(pNextNode)) {
-                long next_node = PyLong_AsLong(pNextNode);
-                printf("Next hop node id: %ld\n", next_node);
-            } else if (pNextNode == Py_None) {
+            if (pNextNode == Py_None) {
                 printf("Next hop: None\n");
+            } else if (PyLong_Check(pNextNode)) {
+                long next_node = PyLong_AsLong(pNextNode);
+                ip6_addr_t next_ip;
+                if (nodeid_to_ipv6(next_node, &next_ip) == 0) {
+                    //printf("Next hop node: %ld\n", next_node);
+                    char next_ip_s[INET6_ADDRSTRLEN];
+                    if (ip6_addr_to_str(&next_ip, next_ip_s, sizeof(next_ip_s)) == 0) {
+                        printf("Next hop ipv6: %s\n", next_ip_s);
+                    } else {
+                        fprintf(stderr, "Failed to stringify next_ip for node %ld\n", next_node);
+                    }
+                } else {
+                    fprintf(stderr, "No mapping nodeid->ipv6 for node %ld\n", next_node);
+                }
+
             } else {
                 printf("Next hop: (non-int)\n");
             }
@@ -263,21 +286,7 @@ int main(void) {
         printf("No candidate routes returned (list empty or not a list)\n");
     }
 
-    /* neteja */
     Py_DECREF(candidates);
-
-    py_cleanup_pkt:
-    Py_DECREF(ipv6pkt);
-    py_cleanup_routes:
-    Py_DECREF(routes);
-    py_cleanup_contact_plan:
-    Py_DECREF(contact_plan);
-    py_cleanup_funcs:
-    Py_XDECREF(py_cp_load);
-    Py_XDECREF(py_cgr_yen);
-    Py_XDECREF(py_fwd_candidate);
-    Py_XDECREF(py_ipv6_packet_cls);
-    py_cleanup_module:
     Py_DECREF(pModule);
     Py_Finalize();
     return 0;

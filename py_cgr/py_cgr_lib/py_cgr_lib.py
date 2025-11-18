@@ -1,7 +1,6 @@
 import sys
 import copy
 from random import randint
-import time
 
 # This library contains prototype clases and methods to evaluate
 # Contact Graph Routing (CGR) routines as follows.
@@ -16,8 +15,8 @@ class Contact:
         # fixed parameters
         self.frm = frm
         self.to = to
-        self.start = start + int(time.time())
-        self.end = end + int(time.time())
+        self.start = start 
+        self.end = end 
         self.rate = rate
         self.owlt = owlt
         self.volume = rate * (end - start)
@@ -209,7 +208,7 @@ class ipv6_packet:
         if priority == 8: self.priority = 0
         if priority == 0: self.priority = 1
         if priority == 46: self.priority = 2
-        self.deadline = deadline + int(time.time()) #hop_limit is used as deadlilne 
+        self.deadline = deadline  #hop_limit is used as deadlilne 
 
         # computed parameters
         #self.sender = sender
