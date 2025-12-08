@@ -36,7 +36,7 @@ int ip6_addr_to_str(const ip6_addr_t *a, char *buf, size_t buflen) {
 }
 
 long ipv6_to_nodeid(const char *ip6) {
-
+    /*
     // Node 0
     if (strcmp(ip6, "fd00:01::1") == 0) return 1;
     if (strcmp(ip6, "fd00:1::1") == 0) return 1;
@@ -52,7 +52,19 @@ long ipv6_to_nodeid(const char *ip6) {
 
     // Node 3
     if (strcmp(ip6, "fd00:23::3") == 0) return 32;
+    */
 
+    //others for experimentation
+    if (strcmp(ip6, "fd00:01::1") == 0) return 1;
+    if (strcmp(ip6, "fd00:1::1") == 0) return 1;
+    if (strcmp(ip6, "fd00:01::2") == 0) return 10;
+    if (strcmp(ip6, "fd00:1::2") == 0) return 10;
+    if (strcmp(ip6, "fd00:12::1") == 0) return 20;
+    if (strcmp(ip6, "fd00:12::2") == 0) return 30;
+    if (strcmp(ip6, "fd00:23::2") == 0) return 40;
+    if (strcmp(ip6, "fd00:23::3") == 0) return 50;
+    if (strcmp(ip6, "fd00:23::4") == 0) return 60;
+    if (strcmp(ip6, "fd00:23::5") == 0) return 70;
     return -1;
 }
 
@@ -60,12 +72,23 @@ int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
 
     const char *addr_txt = NULL;
     switch (node_id) {
+        /*
         case 1: addr_txt = "fd00:01::1"; break;
         case 10: addr_txt = "fd00:01::2"; break;
         case 12: addr_txt = "fd00:12::1"; break;
         case 21: addr_txt = "fd00:12::2"; break;
         case 23: addr_txt = "fd00:23::2"; break;
         case 32: addr_txt = "fd00:23::3"; break;
+        */
+        case 1: addr_txt = "fd00:01::1"; break;
+        case 10: addr_txt = "fd00:01::2"; break;
+        case 20: addr_txt = "fd00:12::1"; break;
+        case 30: addr_txt = "fd00:12::2"; break;
+        case 40: addr_txt = "fd00:23::2"; break;
+        case 50: addr_txt = "fd00:23::3"; break;
+        case 60: addr_txt = "fd00:23::4"; break;
+        case 70: addr_txt = "fd00:23::5"; break;
+
         default: return -1;
     }
 
@@ -86,14 +109,14 @@ int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
 
 int main(void) {
     u32_t _v_tc_fl = 0x60000000;     // version(4) + traffic class(8) + flow label(20) 
-    u16_t _plen = 50;               // payload length 
+    u16_t _plen = 10;               // payload length 
     u8_t  _hoplim = 64;              // hop limit -> lifetime 
     ip6_addr_t local;                // current node
     ip6_addr_t dest;                 // destination of the pkt
 
     unsigned char tmpbuf[16];
 
-    if (inet_pton(AF_INET6, "fd00:01::2", tmpbuf) != 1) {
+    if (inet_pton(AF_INET6, "fd00:01::1", tmpbuf) != 1) {
         fprintf(stderr, "inet_pton local address failed\n");
         return 1;
     }
@@ -102,7 +125,7 @@ int main(void) {
         local.addr[i] = ntohl(w);
     }
 
-    if (inet_pton(AF_INET6, "fd00:23::3", tmpbuf) != 1) {
+    if (inet_pton(AF_INET6, "fd00:23::5", tmpbuf) != 1) {
         fprintf(stderr, "inet_pton dest failed\n");
         return 1;
     }
@@ -142,7 +165,7 @@ int main(void) {
 
     // cp_load
     PyObject *args_load = PyTuple_New(2);
-    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial_1.txt"));
+    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial_4.txt"));
     PyTuple_SetItem(args_load, 1, PyLong_FromLong(5000));
     PyObject *contact_plan = PyObject_CallObject(py_cp_load, args_load);
     PyObject *repr_cp = PyObject_Repr(contact_plan);
@@ -217,7 +240,7 @@ int main(void) {
             long n = PyList_Size(candidates);
             fprintf(stderr, "[DBG] candidates length: %ld\n", n);
             for (long i = 0; i < n; ++i) {
-                PyObject *it = PyList_GetItem(candidates, i); // borrowed
+                PyObject *it = PyList_GetItem(candidates, i);
                 PyObject *repr_it = PyObject_Repr(it);
                 const char *si = PyUnicode_AsUTF8(repr_it);
                 fprintf(stderr, "[DBG] candidate[%ld] repr: %s\n", i, si? si : "<NULL>");
