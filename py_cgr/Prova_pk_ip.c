@@ -37,39 +37,35 @@ int ip6_addr_to_str(const ip6_addr_t *a, char *buf, size_t buflen) {
 
 long ipv6_to_nodeid(const char *ip6) {
 
-    // Node 0 (id = 1)
+    // Node 0
     if (strcmp(ip6, "fd00:01::1") == 0) return 1;
-    if (strcmp(ip6, "fd00:1::1") == 0) return 1; //todo
+    if (strcmp(ip6, "fd00:1::1") == 0) return 1;
 
-    // Node 1 (id = 2)
-    if (strcmp(ip6, "fd00:01::2") == 0) return 2;
-    if (strcmp(ip6, "fd00:12::1") == 0) return 2;
-    if (strcmp(ip6, "fd00::1") == 0) return 2;
-    if (strcmp(ip6, "fd00::2") == 0) return 2;
+    // Node 1 
+    if (strcmp(ip6, "fd00:01::2") == 0) return 10;
+    if (strcmp(ip6, "fd00:1::2") == 0) return 10;
+    if (strcmp(ip6, "fd00:12::1") == 0) return 12;
 
-    // Node 2 (id = 3)
-    if (strcmp(ip6, "fd00:12::2") == 0) return 3;
-    if (strcmp(ip6, "fd00:23::2") == 0) return 3;
-    if (strcmp(ip6, "fd00:22::1") == 0) return 3;
-    if (strcmp(ip6, "fd00:22::2") == 0) return 3;
+    // Node 2
+    if (strcmp(ip6, "fd00:12::2") == 0) return 21;
+    if (strcmp(ip6, "fd00:23::2") == 0) return 23;
 
-    // Node 3 (id = 4)
-    if (strcmp(ip6, "fd00:23::3") == 0) return 4;
-    if (strcmp(ip6, "fd00:33::1") == 0) return 4;
-    if (strcmp(ip6, "fd00:33::2") == 0) return 4;
+    // Node 3
+    if (strcmp(ip6, "fd00:23::3") == 0) return 32;
 
     return -1;
 }
 
-//this function should be diferent for every node
-//for node 0 
 int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
 
     const char *addr_txt = NULL;
     switch (node_id) {
-        case 2: addr_txt = "fd00:01::2"; break;
-        case 3: addr_txt = "fd00:12::2"; break;
-        case 4: addr_txt = "fd00:23::3"; break;
+        case 1: addr_txt = "fd00:01::1"; break;
+        case 10: addr_txt = "fd00:01::2"; break;
+        case 12: addr_txt = "fd00:12::1"; break;
+        case 21: addr_txt = "fd00:12::2"; break;
+        case 23: addr_txt = "fd00:23::2"; break;
+        case 32: addr_txt = "fd00:23::3"; break;
         default: return -1;
     }
 
@@ -97,7 +93,7 @@ int main(void) {
 
     unsigned char tmpbuf[16];
 
-    if (inet_pton(AF_INET6, "fd00:01::1", tmpbuf) != 1) {
+    if (inet_pton(AF_INET6, "fd00:01::2", tmpbuf) != 1) {
         fprintf(stderr, "inet_pton local address failed\n");
         return 1;
     }
@@ -146,7 +142,7 @@ int main(void) {
 
     // cp_load
     PyObject *args_load = PyTuple_New(2);
-    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial_2.txt"));
+    PyTuple_SetItem(args_load, 0, PyUnicode_FromString("contact_plans/cgr_tutorial_1.txt"));
     PyTuple_SetItem(args_load, 1, PyLong_FromLong(5000));
     PyObject *contact_plan = PyObject_CallObject(py_cp_load, args_load);
     PyObject *repr_cp = PyObject_Repr(contact_plan);
