@@ -1,6 +1,6 @@
 //needed library --> export LD_LIBRARY_PATH="/home/celia/Baixades/ENTER/lib:$LD_LIBRARY_PATH"
 //compile --> gcc Prova_pk_ip.c -o Prova_pk_ip $(python3-config --cflags --ldflags --embed)
-//execute --> ./Prova_pk_ipa
+//execute --> ./Prova_pk_ip
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
@@ -36,25 +36,6 @@ int ip6_addr_to_str(const ip6_addr_t *a, char *buf, size_t buflen) {
 }
 
 long ipv6_to_nodeid(const char *ip6) {
-    /*
-    // Node 0
-    if (strcmp(ip6, "fd00:01::1") == 0) return 1;
-    if (strcmp(ip6, "fd00:1::1") == 0) return 1;
-
-    // Node 1 
-    if (strcmp(ip6, "fd00:01::2") == 0) return 10;
-    if (strcmp(ip6, "fd00:1::2") == 0) return 10;
-    if (strcmp(ip6, "fd00:12::1") == 0) return 12;
-
-    // Node 2
-    if (strcmp(ip6, "fd00:12::2") == 0) return 21;
-    if (strcmp(ip6, "fd00:23::2") == 0) return 23;
-
-    // Node 3
-    if (strcmp(ip6, "fd00:23::3") == 0) return 32;
-    */
-
-    //others for experimentation
     if (strcmp(ip6, "fd00:01::1") == 0) return 1;
     if (strcmp(ip6, "fd00:1::1") == 0) return 1;
     if (strcmp(ip6, "fd00:01::2") == 0) return 10;
@@ -72,14 +53,6 @@ int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
 
     const char *addr_txt = NULL;
     switch (node_id) {
-        /*
-        case 1: addr_txt = "fd00:01::1"; break;
-        case 10: addr_txt = "fd00:01::2"; break;
-        case 12: addr_txt = "fd00:12::1"; break;
-        case 21: addr_txt = "fd00:12::2"; break;
-        case 23: addr_txt = "fd00:23::2"; break;
-        case 32: addr_txt = "fd00:23::3"; break;
-        */
         case 1: addr_txt = "fd00:01::1"; break;
         case 10: addr_txt = "fd00:01::2"; break;
         case 20: addr_txt = "fd00:12::1"; break;
@@ -88,7 +61,6 @@ int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
         case 50: addr_txt = "fd00:23::3"; break;
         case 60: addr_txt = "fd00:23::4"; break;
         case 70: addr_txt = "fd00:23::5"; break;
-
         default: return -1;
     }
 
