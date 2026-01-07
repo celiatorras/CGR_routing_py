@@ -1,4 +1,3 @@
-//needed library --> export LD_LIBRARY_PATH="/home/celia/Baixades/ENTER/lib:$LD_LIBRARY_PATH"
 //compile --> gcc Prova_pk_ip.c -o Prova_pk_ip $(python3-config --cflags --ldflags --embed)
 //execute --> ./Prova_pk_ip
 
@@ -81,7 +80,7 @@ int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
 
 int main(void) {
     u32_t _v_tc_fl = 0x60000000;     // version(4) + traffic class(8) + flow label(20) 
-    u16_t _plen = 10;               // payload length 
+    u16_t _plen = 1000;              // payload length 
     u8_t  _hoplim = 64;              // hop limit -> lifetime 
     ip6_addr_t local;                // current node
     ip6_addr_t dest;                 // destination of the pkt
@@ -193,7 +192,7 @@ int main(void) {
     PyObject *ipv6pkt = PyObject_CallObject(py_ipv6_packet, args_pkt);
     Py_DECREF(args_pkt);
 
-    /* ------------------ fwd_candidate ------------------ */
+    // fwd_candidate
     PyObject *excluded_nodes = PyList_New(0);
     PyObject *args_fwd = PyTuple_New(6);
     PyTuple_SetItem(args_fwd, 0, PyFloat_FromDouble(curr_time));
