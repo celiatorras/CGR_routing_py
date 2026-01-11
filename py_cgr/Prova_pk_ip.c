@@ -35,16 +35,14 @@ int ip6_addr_to_str(const ip6_addr_t *a, char *buf, size_t buflen) {
 }
 
 long ipv6_to_nodeid(const char *ip6) {
-    if (strcmp(ip6, "fd00:01::1") == 0) return 1;
-    if (strcmp(ip6, "fd00:1::1") == 0) return 1;
-    if (strcmp(ip6, "fd00:01::2") == 0) return 10;
-    if (strcmp(ip6, "fd00:1::2") == 0) return 10;
-    if (strcmp(ip6, "fd00:12::1") == 0) return 20;
-    if (strcmp(ip6, "fd00:12::2") == 0) return 30;
-    if (strcmp(ip6, "fd00:23::2") == 0) return 40;
-    if (strcmp(ip6, "fd00:23::3") == 0) return 50;
-    if (strcmp(ip6, "fd00:23::4") == 0) return 60;
-    if (strcmp(ip6, "fd00:23::5") == 0) return 70;
+    if (strcmp(ip6, "fd00::1") == 0) return 1;
+    if (strcmp(ip6, "fd00::2") == 0) return 2;
+    if (strcmp(ip6, "fd00::3") == 0) return 3;
+    if (strcmp(ip6, "fd00::4") == 0) return 4;
+    if (strcmp(ip6, "fd00::5") == 0) return 5;
+    if (strcmp(ip6, "fd00::6") == 0) return 6;
+    if (strcmp(ip6, "fd00::7") == 0) return 7;
+    if (strcmp(ip6, "fd00::8") == 0) return 8;
     return -1;
 }
 
@@ -52,14 +50,14 @@ int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
 
     const char *addr_txt = NULL;
     switch (node_id) {
-        case 1: addr_txt = "fd00:01::1"; break;
-        case 10: addr_txt = "fd00:01::2"; break;
-        case 20: addr_txt = "fd00:12::1"; break;
-        case 30: addr_txt = "fd00:12::2"; break;
-        case 40: addr_txt = "fd00:23::2"; break;
-        case 50: addr_txt = "fd00:23::3"; break;
-        case 60: addr_txt = "fd00:23::4"; break;
-        case 70: addr_txt = "fd00:23::5"; break;
+        case 1: addr_txt = "fd00::1"; break;
+        case 2: addr_txt = "fd00::2"; break;
+        case 3: addr_txt = "fd00::3"; break;
+        case 4: addr_txt = "fd00::4"; break;
+        case 5: addr_txt = "fd00::5"; break;
+        case 6: addr_txt = "fd00::6"; break;
+        case 7: addr_txt = "fd00::7"; break;
+        case 8: addr_txt = "fd00::8"; break;
         default: return -1;
     }
 
@@ -80,14 +78,14 @@ int nodeid_to_ipv6(long node_id, ip6_addr_t *out) {
 
 int main(void) {
     u32_t _v_tc_fl = 0x60000000;     // version(4) + traffic class(8) + flow label(20) 
-    u16_t _plen = 1000;              // payload length 
+    u16_t _plen = 100;                // payload length 
     u8_t  _hoplim = 64;              // hop limit -> lifetime 
     ip6_addr_t local;                // current node
     ip6_addr_t dest;                 // destination of the pkt
 
     unsigned char tmpbuf[16];
 
-    if (inet_pton(AF_INET6, "fd00:01::1", tmpbuf) != 1) {
+    if (inet_pton(AF_INET6, "fd00::1", tmpbuf) != 1) {
         fprintf(stderr, "inet_pton local address failed\n");
         return 1;
     }
@@ -96,7 +94,7 @@ int main(void) {
         local.addr[i] = ntohl(w);
     }
 
-    if (inet_pton(AF_INET6, "fd00:23::5", tmpbuf) != 1) {
+    if (inet_pton(AF_INET6, "fd00::8", tmpbuf) != 1) {
         fprintf(stderr, "inet_pton dest failed\n");
         return 1;
     }
@@ -160,7 +158,7 @@ int main(void) {
     PyTuple_SetItem(args_yen, 1, PyLong_FromLong(dest_node_id));
     PyTuple_SetItem(args_yen, 2, PyFloat_FromDouble(curr_time));
     PyTuple_SetItem(args_yen, 3, contact_plan);
-    PyTuple_SetItem(args_yen, 4, PyLong_FromLong(10)); 
+    PyTuple_SetItem(args_yen, 4, PyLong_FromLong(20)); 
     PyObject *routes = PyObject_CallObject(py_cgr_yen, args_yen);
     PyObject *repr_r = PyObject_Repr(routes);
     if (repr_r) {
@@ -180,7 +178,7 @@ int main(void) {
 
     // ipv6_packet
     long size = _plen;
-    long deadline = _hoplim*10; //multiplying factor to transform to lifetime
+    long deadline = _hoplim;
     uint8_t tc = (uint8_t)((_v_tc_fl >> 20) & 0xFF); // traffic class (8 bits) 
     uint8_t dscp = (uint8_t)(tc >> 2);               // DSCP = TC[7:2] (6 bits)
 

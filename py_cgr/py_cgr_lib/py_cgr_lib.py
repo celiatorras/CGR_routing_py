@@ -208,7 +208,7 @@ class ipv6_packet:
         if priority == 8: self.priority = 0
         if priority == 0: self.priority = 1
         if priority == 46: self.priority = 2
-        self.deadline = deadline  #hop_limit is used as deadlilne 
+        self.deadline = deadline * 100000    #hop_limit is used as deadlilne 
 
         # computed parameters
         #self.sender = sender

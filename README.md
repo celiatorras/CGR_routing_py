@@ -10,9 +10,6 @@ inside py_cgr/
 └── Prova_pk_ip.c
 ```
 
-The current configuration is set to simulate a network with four nodes each with its interfaces id:  
-**node 0** (01) __ (10) **node 1** (12) __ **node 2** (23) __ (32) **node 3**
-
 ## py_cgr_lib.py
 Library extracted from https://bitbucket.org/juanfraire/pycgr/src/master/. Modified to be used for IPv6 packets instead of Bundles. 
 
